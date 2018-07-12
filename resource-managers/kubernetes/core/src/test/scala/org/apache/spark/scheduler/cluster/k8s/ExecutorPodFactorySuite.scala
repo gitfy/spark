@@ -56,7 +56,7 @@ class ExecutorPodFactorySuite extends SparkFunSuite with BeforeAndAfter with Bef
       .set(KUBERNETES_DRIVER_POD_NAME, driverPodName)
       .set(KUBERNETES_EXECUTOR_POD_NAME_PREFIX, executorPrefix)
       .set(CONTAINER_IMAGE, executorImage)
-      .set(KUBERNETES_DRIVER_SUBMIT_CHECK, true)
+//      .set(KUBERNETES_DRIVER_SUBMIT_CHECK, true)
       .set(IMAGE_PULL_SECRETS, imagePullSecrets)
   }
 
