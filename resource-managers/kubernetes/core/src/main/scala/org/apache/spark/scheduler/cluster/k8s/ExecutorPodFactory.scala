@@ -77,6 +77,8 @@ private[spark] class ExecutorPodFactory(
     .getOrElse(throw new SparkException("Must specify the executor container image"))
   private val imagePullPolicy = sparkConf.get(CONTAINER_IMAGE_PULL_POLICY)
   private val imagePullSecrets = sparkConf.get(IMAGE_PULL_SECRETS)
+  private val volumeMount = sparkConf.get(KUBERNETES_EXECUTOR_VOLUME_MOUNT)
+
   private val blockManagerPort = sparkConf
     .getInt("spark.blockmanager.port", DEFAULT_BLOCKMANAGER_PORT)
 
@@ -209,21 +211,41 @@ private[spark] class ExecutorPodFactory(
         .endSpec()
       .build()
 
+    val (containerWithVolumeMount, podWithVolumeMount) = volumeMount.map { volumeMount =>
+      val parts = volumeMount.split(":")
+      val name = "mount-volume-1"
+      (new ContainerBuilder(executorContainer)
+        .addNewVolumeMount()
+          .withName(name)
+          .withMountPath(parts.last)
+        .endVolumeMount()
+        .build(),
+      new PodBuilder(executorPod)
+        .editSpec()
+          .addNewVolume()
+            .withName(name)
+            .withNewHostPath().withPath(parts.head).endHostPath()
+          .endVolume()
+        .endSpec()
+        .build()
+      )
+    }.getOrElse((executorContainer, executorPod))
+
     val containerWithLimitCores = executorLimitCores.map { limitCores =>
       val executorCpuLimitQuantity = new QuantityBuilder(false)
         .withAmount(limitCores)
         .build()
-      new ContainerBuilder(executorContainer)
+      new ContainerBuilder(containerWithVolumeMount)
         .editResources()
         .addToLimits("cpu", executorCpuLimitQuantity)
         .endResources()
         .build()
-    }.getOrElse(executorContainer)
+    }.getOrElse(containerWithVolumeMount)
 
     val (maybeSecretsMountedPod, maybeSecretsMountedContainer) =
       mountSecretsBootstrap.map { bootstrap =>
-        (bootstrap.addSecretVolumes(executorPod), bootstrap.mountSecrets(containerWithLimitCores))
-      }.getOrElse((executorPod, containerWithLimitCores))
+        (bootstrap.addSecretVolumes(podWithVolumeMount), bootstrap.mountSecrets(containerWithLimitCores))
+      }.getOrElse((podWithVolumeMount, containerWithLimitCores))
 
     val (bootstrappedPod, bootstrappedContainer) =
       initContainerBootstrap.map { bootstrap =>

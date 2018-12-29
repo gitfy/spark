@@ -92,6 +92,12 @@ private[spark] object Config extends Logging {
       .stringConf
       .createOptional
 
+  val KUBERNETES_EXECUTOR_VOLUME_MOUNT =
+    ConfigBuilder("spark.kubernetes.executor.volume.mount")
+      .doc("Volume mount.")
+      .stringConf
+      .createOptional
+
   val KUBERNETES_DRIVER_POD_NAME =
     ConfigBuilder("spark.kubernetes.driver.pod.name")
       .doc("Name of the driver pod.")
